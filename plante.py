@@ -481,11 +481,15 @@ if __name__ == "__main__" :
     DOY,T2M,RAIN,WS10M=lectureControle(controlData)
     #print(T2M)
     last_cycle = 20
-    print(args.parameters_file)
+    # print(args.parameters_file)
     for i in range(1,last_cycle):
-        print("time :", i, "| Matseche :", Matseche(i))
-    #DataSet = dictToList(Matseche(last_cycle))
-    #df = pd.DataFrame(data = DataSet, columns=['id','observation_model','time','variable','value' ])
-    #df.to_csv(args.output_file, index =False)#header=None, sep ="\t" 
+        Matseche(i)
+        # print("time :", i, "| Matseche :", Matseche(i))
+    DataSet = dictToList(Matseche(last_cycle))
+    for i in range(0, len(DataSet)):
+        DataSet[i] = [DataSet[i][0], "MS", DataSet[i][0], "MS", DataSet[i][1]]
+    print(DataSet)
+    df = pd.DataFrame(data = DataSet, columns=['#id','observation_model','time','variable','value' ])
+    df.to_csv(args.output_file, index =False)#header=None, sep ="\t" 
 
     #QNGrains(3)
