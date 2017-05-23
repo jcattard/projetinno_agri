@@ -474,7 +474,7 @@ if __name__ == "__main__" :
     parser.add_argument('--control-file', required=True)
     parser.add_argument('--output-file', required=True)
     args = parser.parse_args()
-    parameters = pd.read_csv(args.parameters_file, header = None, index_col=False, sep="\t")
+    parameters = pd.read_csv(args.parameters_file, header = None, index_col=False, sep=",")
     par = lectureDonnees(parameters)
     ebmax,eimax,k,D,R,Vmax,Ncrit1,Ncrit2,Ncrit3,Nmax1,Nmax2,MSseuil,flo=attributionParametres(par)
     controlData = pd.read_csv(args.control_file, index_col=False, sep=",")
@@ -488,7 +488,7 @@ if __name__ == "__main__" :
     DataSet = dictToList(Matseche(last_cycle))
     for i in range(0, len(DataSet)):
         DataSet[i] = [DataSet[i][0], "MS", DataSet[i][0], "MS", DataSet[i][1]]
-    print(DataSet)
+    # print(DataSet)
     df = pd.DataFrame(data = DataSet, columns=['#id','observation_model','time','variable','value' ])
     df.to_csv(args.output_file, index =False)#header=None, sep ="\t" 
 
