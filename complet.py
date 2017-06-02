@@ -6,9 +6,7 @@
 
 
 import argparse
-import numpy as np
-import pandas as pd
-from scipy import *
+from numpy import math, array, concatenate
 import csv
 
 ###############################################################################
@@ -40,6 +38,7 @@ def dictToList(dictionnaire):
         res.append((k,dictionnaire[k]))
     return(res)
 
+
 def lectureControle(controlData):
     nbr_lines = len(controlData)
     nbr_vars=len(controlData[0])
@@ -62,6 +61,7 @@ def lectureControle(controlData):
         RAIN[k-1] = float(controlData[k][8])
         WS10M[k-1] = float(controlData[k][9])
     return(DOY,IRRAD,T2M,T2MN,T2MX,RAIN,WS10M,HUM)
+
 
 ###PARAMETERS
 #parameters = pd.read_csv(args.parameters_file)
@@ -156,6 +156,7 @@ def attributionParametres2(exp):
 #############
 MS={0 : 178.3} #Le Moulon, Arche genotype, 2001, Matiere seche a la sortie de l'hiver
 LAI={0:0}
+DJdict={0:0}
 SDJ={0:0}
 SDT={0:0}
 QN={0 : 0.1, 1 : 0.2}
@@ -168,8 +169,9 @@ Time_defficiency = 0
 Global_Time_Defficiency=0
 isDefficiencyYesterday = False
 min_INN=1
+INN=1
 Sf=0
-precision=10**(-6)
+precision=10**(-5)
 NGM=0
 N_n=QN[1]-QN[0]
 
@@ -291,7 +293,7 @@ def modelAzodyn(n):
             MSGn[flo]=0
             QNflo=QN[flo]
             SDTflo=SDT[flo]
-            QNGflo=percNgrainflo*BMpotG(n,JNMS(int(flo),n+1))/100
+            QNGflo=percNgrainflo*QNflo/100
             QNGn[flo]=QNGflo
             LAIflo=LAI[flo]
             QNaerflo=QN[flo]/R
@@ -338,6 +340,7 @@ def calcul_avflor(n):
     global isDefficiencyYesterday
     global N_n
     global NGM
+    global INN
     MS1=MS.get(n)
     CalculSol(n,N_n)
     #test
@@ -367,18 +370,21 @@ def calcul_avflor(n):
         if N_n_init==0:
             INN=0
         else:
-            INN = N_n_init / (delta_MS * Ncrit1)
+            if delta_MS!=0:
+                INN = N_n_init / (delta_MS * Ncrit1)
     else:
         #N_n_init = min(Qsol[n + 1], min(R * Nmax2 * (delta_MS), c1))
         N_n_init = min(Qsol[n + 1],c1)
         if N_n_init==0:
             INN=0
         else:
-            INN = N_n_init / (delta_MS * Ncrit2 * (MS1 / 1000) ** Ncrit3)
+            if delta_MS!=0:
+                INN = N_n_init / (delta_MS * Ncrit2 * (MS1 / 1000) ** Ncrit3)
     N_n_loop=N_n_init
     #test
     DJ=(T2MX[n] - T2MN[n]) / 2
-    SDJ[n + 1] = DJ
+    DJdict[n + 1] = DJ
+    SDJ[n+1]=SDJ[n]+DJ
     #isDjok= (Dj>Tmin and DJ<Tmax)
     iscarence= INN<1
     whilecondition1=True
@@ -518,7 +524,8 @@ def calcul_aprflo(n):
      #on fait appel à la fonction du module avant floraison pour obtenir MSflo
 
     DJ = (T2MX[n] - T2MN[n]) / 2
-    SDJ[n + 1] = DJ
+    DJdict[n + 1] = DJ
+    SDJ[n+1]=SDJ[n]+DJ
     SDT[n+1]=JNMS(0,n+1)
     MS1 = f_cas5(n, MS[n-1], PAR,T2M[n])
     delta_MS=(MS1-MS[n-1])/1000
@@ -542,12 +549,12 @@ def BMpotG(n,JN):
 def H(average_H):
     return 0.2+0.8*(average_H-Hmin)/(Hcc-HpF)
 
-#def Humidity_fake(n):
-#   Hum[n]=0.5
+def Humidity_fake(n):
+   Hum[n]=0.5
 #Normalised day
 def JN(n):
     # JN la durée en jours normalises de la phase floraison, (jours normalises : Un jour normalise correspond a un jour à une temperature de 15°C
-    #Humidity_fake(n)
+    Humidity_fake(n)
     res=fmin(T2M[n],Toptimum)*H(Hum[n])
     return res
 
@@ -569,7 +576,6 @@ def MSG(n): #f est le jour de floraison
     # MSflo la matière sèche aérienne de la culture à floraison, donc MS d'avant floraison le dernier jour
     # WSC0 la quantité de sucres solubles stockés à floraison et remobilisables
     # WSC le coefficient de remobilisation des sucres solubles.
-    print(MS1Gpot[n])
     MSGn[n+1]=MSGn[n]+min(MS1Gpot[n]*NGM,((QNGn[n]*MSaa)/10+(MS[n]-MSflo)/10 + (WSC0*WSC)/10))
 
 def QNG(n): #il faut encore trouver les valeurs des constantes
@@ -581,7 +587,7 @@ def QNG(n): #il faut encore trouver les valeurs des constantes
     if SDT[n]<(SDTflo+DC/2):
         QNGn[n]=QNGn[n-1]+min(MSGn[n-1]*0.028,QNrem*Vitrem[n]+QNaern[n]-QNflo)
     else:
-        QNGn[n]=QNGn[n-1]+QNrem*Vitrem+QNaern[n]-QNflo
+        QNGn[n]=QNGn[n-1]+QNrem*Vitrem[n]+QNaern[n]-QNflo
     return QNGn[n]
 #Accumulation de matiere seche et d'azote dans la culture entre floraison et recolte
 def GLAI(n):
@@ -589,18 +595,15 @@ def GLAI(n):
     SENESC liste des coefficients de réduction de la surface foliaire sous l’effet de la remobilisation de l’azote.
     QNveg représente la quantité d’azote des parties végétatives de la culture
     QNaerflo la quantité d’azote des parties aériennes de la culture à floraison'''
-    print("fraction",QNveg[n]/(QNaerflo-QNGflo))
-    print("QNveg",QNveg[n],"QNaerflo",QNaerflo,"QNGflo",QNGflo)
     LAI[n] = min(LAI[n-1],LAIflo*(SENESC1*math.log(SENESC2*(QNveg[n]/(QNaerflo-QNGflo))+SENESC3)))
     return LAI[n]
 
 def QNaer(i,MS1):
     #DJ est la liste des degres-jours
     global perc_Naer
-    sdj = 0
-    for dj in (list(SDJ.items())[:i]):
-        sdj += dj[1]
-    if sdj < 200:
+    sdj=SDJ[i]
+    sdjflo=SDJ[int(flo)]
+    if sdj-sdjflo < 200:
         if MS1/1000<MSseuil:
             QNaern[i] = QN[i-1]+ min(Qsol[i-1],min(MS1*Nmax1,Vmax*T2M[i]))
         else:
@@ -617,8 +620,6 @@ def f_cas5(n,x1,PAR,T):
     LAIc = GLAI(n)
     y1 = 1 - math.exp(-k * LAIc)
     y2 = eb * eimax * PAR
-    print("eb",eb)
-    print("LAI",LAIc)
     return x1 + f_croi(T) * y1 * y2
 
 
@@ -629,7 +630,8 @@ def calcul_eb_post_flo(n):
         return max(ebflo*SENESCeb*(QNveg[n]/QNaerflo)-1,0)
     else:
         return 0
-    #QNGrains(3)
+
+
 ###############################################################################
 ##################            code           ##################################
 ###############################################################################
@@ -657,9 +659,9 @@ if __name__ == "__main__" :
         reader = csv.reader(csvfile)
         for row in reader:
             if  "controlData" not in locals():
-                controlData = np.array([row])
+                controlData = array([row])
             else:
-                controlData = np.concatenate((controlData, [np.array(row)]))
+                controlData = concatenate((controlData, [array(row)]))
 
     DOY,IRRAD,T2M,T2MN,T2MX,RAIN,WS10M,Hum=lectureControle(controlData)
 
@@ -667,24 +669,11 @@ if __name__ == "__main__" :
     for i in range(0,last_cycle-1):
         modelAzodyn(i)
     DataSetMS = dictToList(MS)
-    print(DataSetMS)
-    # DataSetQsol = dictToList(Qsol)
-    # DataSet={}
-    # for i in range(0, len(DataSetMS)):
-    #     DataSet[i] = str(DataSetMS[i][0])+",MS,"+str(DataSetMS[i][0]+1)+",MS,"+ str(DataSetMS[i][1])+",Qsol,"+str(DataSetQsol[i][1])
-    # df = pd.DataFrame(list(DataSet.items()), columns=['#id','observation_model,time,variable1,value1,variable2value2' ])
-    # df.to_csv(args.output_file,sep=",", index =False)#header=None, sep ="\t"
 
-
-    # DataSet = dictToList(Matseche(last_cycle))
-    # print("======\nconvertion time dictToList : %0.2g second(s)"%(time()-t_convert))
-    # t_convert = time()
-    # for i in range(0, len(DataSet)):
-    #     DataSet[i] = [DataSet[i][0], "MS", DataSet[i][0], "MS", DataSet[i][1]]
-    # print("======\nStructure convertion time : %0.2g second(s)"%(time()-t_convert))
-    # t_write = time()
-    # with open(args.output_file, 'w') as csvfile:
-    #     spamwriter = csv.writer(csvfile, delimiter=',')
-    #     spamwriter.writerow(['#id','observation_model','time','variable','value'])
-    #     for i in DataSet:
-    #         spamwriter.writerow(i)
+    for i in range(0, len(DataSetMS)):
+        DataSetMS[i] = [DataSetMS[i][0], "MS", DataSetMS[i][0], "MS", DataSetMS[i][1]]
+    with open(args.output_file, 'w') as csvfile:
+        spamwriter = csv.writer(csvfile, delimiter=',')
+        spamwriter.writerow(['#id','observation_model','time','variable','value'])
+        for i in DataSetMS:
+            spamwriter.writerow(i)

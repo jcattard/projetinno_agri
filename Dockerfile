@@ -10,5 +10,6 @@ COPY requirements.txt /home/user01
 RUN pip install --user -r /home/user01/requirements.txt
 
 COPY donneesEnvironnement.txt /home/user01
-COPY plante.py /home/user01
+COPY experience.txt /home/user01
+COPY complet.py /home/user01
 COPY run.sh /home/user01

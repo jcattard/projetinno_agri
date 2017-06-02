@@ -18,7 +18,7 @@ split -l13 $1 p_
 NPROC=0
 for i in $(ls p_*)
 do
-    ./plante.py --parameters-file $i --control-file ../donneesEnvironnement.txt --output-file ./y_$i > /dev/null
+    ./plante.py --parameters-file $i --control-file ./donneesEnvironnement.txt --output-file ./y_$i > /dev/null
     NPROC=$(($NPROC+1))
     if [ "$NPROC" -ge $parallel ]
     then
